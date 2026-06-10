@@ -63,6 +63,7 @@ def load():
         skills = g1r.list_player_skills(payload)
         inventory = g1r.find_player_inventory(payload)
         item_db = g1r.list_item_db(payload)
+        passages = g1r.list_passages(payload)
     except Exception as e:
         return jsonify(error=str(e)), 400
 
@@ -90,6 +91,7 @@ def load():
         inventory=[{"id": it["id"], "item": it["item"], "label": it["label"],
                     "count": it["count"]} for it in inventory],
         item_db=item_db,
+        passages=[{"name": p["name"], "value": p["value"]} for p in passages],
         quests=[{"id": q["val_off"], "key": q["key"], "name": q["name"], "state": q["state"]}
                 for q in quests],
     )
@@ -104,13 +106,16 @@ def patch():
     skill_changes = body.get("skill_changes") or []
     inv_changes = body.get("inv_changes") or []
     inv_adds = body.get("inv_adds") or []
+    passage_changes = body.get("passage_changes") or []
+    passage_adds = body.get("passage_adds") or []
     with _lock:
         sess = _sessions.get(token)
         if sess:
             sess["ts"] = time.time()
     if not sess:
         return jsonify(error="session expired; please re-upload your save"), 410
-    if not (quest_changes or attr_changes or skill_changes or inv_changes or inv_adds):
+    if not (quest_changes or attr_changes or skill_changes or inv_changes or inv_adds
+            or passage_changes or passage_adds):
         return jsonify(error="no changes selected"), 400
 
     aedits = [{"base_off": int(ch["id"]), "value": ch["value"]} for ch in attr_changes]
@@ -122,6 +127,8 @@ def patch():
             payload = g1r.apply_attribute_edits(payload, aedits)   # length-neutral first
         if iedits:
             payload = g1r.apply_inventory_edits(payload, iedits)   # length-neutral too
+        if passage_changes:
+            payload = g1r.apply_passage_edits(payload, passage_changes)   # length-neutral too
 
         # quest + skill edits are length-changing and share ancestors
         # (m_GenericData), so they must be applied together in one pass.
@@ -146,6 +153,8 @@ def patch():
             payload = g1r.learn_skill(payload, base, tier)
         for add in inv_adds:                                # experimental: clone an item slot
             payload = g1r.add_item(payload, add["item"], int(add.get("count", 1)))
+        for add in passage_adds:                            # experimental: new story flag
+            payload = g1r.add_passage(payload, add["name"], int(add.get("value", 1)))
 
         c = g1r.Container(sess["sav"])
         out = g1r.rebuild(c, oodle(), payload)

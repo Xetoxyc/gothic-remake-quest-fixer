@@ -992,3 +992,130 @@ def slot_name(container):
             except Exception:
                 pass
     return None
+
+
+# ------------------------------------------------------- world / story flags
+# The game's script variables live in area-bound memory containers as
+# Name -> Int maps (a name FString immediately followed by an i32 value, packed
+# back to back). These are the "checks" dialogues/quests test, e.g.
+# GuardPassageWarning_SC, SwampCampTemple_Permision. Editing one is a single
+# in-place i32 write (length-neutral), so it's as safe as item-count edits.
+# script flags live ONLY in StoryPropertyValues maps (MapProperty<Name,Int>);
+# scoping to them avoids catching unrelated name->int maps (e.g. item maps).
+_STORY_MAP = _re.compile(rb"StoryPropertyValues\x00")
+_FLAG_ID = _re.compile(r"^[A-Za-z][A-Za-z0-9_]{2,62}$")
+
+
+def _read_flag_name(payload, o):
+    n = struct.unpack_from("<i", payload, o)[0]
+    if 1 <= n <= 64 and o + 4 + n <= len(payload) and payload[o + 4 + n - 1] == 0:
+        s = payload[o + 4:o + 4 + n - 1].decode("ascii", "replace")
+        if _FLAG_ID.match(s):
+            return s, o + 4 + n
+    return None, o
+
+
+def _scan_flags(payload):
+    """Returns [(value_offset, name, value)] for every StoryPropertyValues entry."""
+    out = []
+    for hm in _STORY_MAP.finditer(payload):
+        np = hm.start() - 4                               # FString length prefix
+        if np < 0 or struct.unpack_from("<i", payload, np)[0] != 20:
+            continue
+        try:
+            _, o2 = _fstr(payload, np)                    # "StoryPropertyValues"
+            root, o3 = _typename(payload, o2)             # "MapProperty"(Name, Int)
+            if root != "MapProperty":
+                continue
+            vstart, vend, _ = _value_end(payload, o3, root)
+        except Exception:
+            continue
+        p = next((c for c in (vstart + 8, vstart + 4, vstart)
+                  if _read_flag_name(payload, c)[0]), None)   # skip the count header
+        while p is not None and p < vend:
+            name, e = _read_flag_name(payload, p)
+            if not name:
+                break
+            out.append((e, name, struct.unpack_from("<i", payload, e)[0]))
+            p = e + 4
+    return out
+
+
+def list_passages(payload):
+    """Distinct script flags (name -> int). A name may occur in several memory
+    containers; we keep every value offset so an edit updates them all."""
+    seen = {}
+    for vo, name, val in _scan_flags(payload):
+        e = seen.get(name)
+        if e is None:
+            seen[name] = {"name": name, "value": val, "offs": [vo]}
+        else:
+            e["offs"].append(vo)
+    return sorted(seen.values(), key=lambda x: x["name"].lower())
+
+
+def apply_passage_edits(payload, edits):
+    """edits: [{name, value}] -> set the i32 at every offset of that flag (neutral)."""
+    by_name = {f["name"]: f for f in list_passages(payload)}
+    d = bytearray(payload)
+    for e in edits:
+        f = by_name.get(e["name"])
+        if not f:
+            raise ValueError(f"unknown flag {e.get('name')!r}")
+        v = int(e["value"])
+        if not (-2_000_000_000 <= v <= 2_000_000_000):
+            raise ValueError("flag value out of range")
+        for off in f["offs"]:
+            struct.pack_into("<i", d, off, v)
+    return bytes(d)
+
+
+def add_passage(payload, name, value=1):
+    """EXPERIMENTAL: add a brand-new flag (name -> int) to the StoryPropertyValues
+    map (append a key/value pair, bump count + enclosing sizes). Use to *grant* a
+    permission the save doesn't have yet. Re-validated structurally."""
+    name = name.strip()
+    if not _FLAG_ID.match(name):
+        raise ValueError("invalid flag name (letters/digits/underscore, 3-63 chars)")
+    if any(n == name for _, n, _v in _scan_flags(payload)):
+        raise ValueError("flag already exists — edit it instead")
+    for hm in _STORY_MAP.finditer(payload):
+        np = hm.start() - 4
+        if np < 0 or struct.unpack_from("<i", payload, np)[0] != 20:
+            continue
+        try:
+            _, o2 = _fstr(payload, np)
+            root, o3 = _typename(payload, o2)
+            if root != "MapProperty":
+                continue
+            vstart, vend, _ = _value_end(payload, o3, root)
+        except Exception:
+            continue
+        first = next((c for c in (vstart + 8, vstart + 4, vstart)
+                      if _read_flag_name(payload, c)[0]), None)
+        if first is None:
+            continue
+        count_off = first - 4
+        p = first
+        while p < vend:                                   # walk to end of the pairs
+            nm, e = _read_flag_name(payload, p)
+            if not nm:
+                break
+            p = e + 4
+        _, anchor = _read_flag_name(payload, first)        # value offset of first pair
+        try:
+            above = [c["size_off"] for c in _chain(payload, anchor)]
+        except Exception:
+            raise ValueError("could not resolve the story-map container chain")
+        pair = (struct.pack("<i", len(name) + 1) + name.encode("ascii") + b"\x00"
+                + struct.pack("<i", int(value)))
+        d = bytearray(payload)
+        for so in above:
+            struct.pack_into("<i", d, so, struct.unpack_from("<i", d, so)[0] + len(pair))
+        struct.pack_into("<i", d, count_off, struct.unpack_from("<i", d, count_off)[0] + 1)
+        d[p:p] = pair                                      # append the new pair
+        out = bytes(d)
+        if not validate(out):
+            raise ValueError("adding the flag produced an invalid structure")
+        return out
+    raise ValueError("no StoryPropertyValues map found")

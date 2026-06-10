@@ -20,7 +20,10 @@
       <p><strong>Drop your <code>.sav</code> here</strong> or <button id="browse" class="link">browse…</button></p>
       <p class="hint">Your save never leaves your machine — it's processed by the local container.</p>
     </div>
-    <div id="loading" class="loading hidden">Decompressing &amp; reading quests…</div>
+    <div id="loading" class="loading hidden">
+      <span class="spinner"></span>
+      <span>Decompressing &amp; reading your save… large saves can take up to a minute.</span>
+    </div>
     <div id="load-error" class="error hidden"></div>
   </section>
 
@@ -40,6 +43,7 @@
       <button class="tab" data-tab="skills">Skills</button>
       <button class="tab" data-tab="inventory">Inventory</button>
       <button class="tab" data-tab="quests">Quests</button>
+      <button class="tab" data-tab="passages">Passages</button>
       <button class="tab" data-tab="glossary">Glossary</button>
     </nav>
 
@@ -85,6 +89,23 @@
         <span id="count-quests" class="count"></span>
       </div>
       <div id="list-quests" class="list"></div>
+    </div>
+
+    <!-- Passages / world & story script flags -->
+    <div class="panel hidden" data-panel="passages">
+      <p class="muted">World &amp; story script flags (guard passages, permissions, quest conditions…). Edit the raw
+        value, or <b>add a flag</b> that doesn't exist yet (e.g. grant a permission). <b>Experimental</b> — verify in-game.</p>
+      <div class="additem">
+        <input id="add-pass-name" placeholder="Add flag — name (e.g. SwampCampTemple_Permision)" autocomplete="off">
+        <input id="add-pass-val" type="number" value="1" title="value">
+        <button id="add-pass-btn" class="primary small">+ add</button>
+      </div>
+      <div class="toolbar">
+        <input id="search-pass" type="search" placeholder="Search flags…  (e.g. passage, permision, guild)" autocomplete="off">
+        <label class="check"><input type="checkbox" id="only-changed-pass"> only changed</label>
+        <span id="count-pass" class="count"></span>
+      </div>
+      <div id="list-pass" class="attrs"></div>
     </div>
 
     <!-- Glossary (creatures / locations bestiary entries) -->

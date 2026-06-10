@@ -21,7 +21,14 @@ main{max-width:880px;margin:18px auto;padding:0 16px 120px}
 .drop.over{border-color:var(--accent);background:#2c2317}
 .drop code{background:#0003;padding:1px 6px;border-radius:5px}
 .hint{color:var(--muted);font-size:13px;margin:8px 0 0}
-.loading{margin-top:14px;color:var(--accent2)}
+.loading{margin-top:14px;color:var(--accent2);display:flex;align-items:center;
+  justify-content:center;gap:10px}
+.spinner{width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;flex:none;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btnspin{width:14px;height:14px;border:2px solid #ffffff55;border-top-color:#fff;
+  border-radius:50%;animation:spin .8s linear infinite;display:inline-block;
+  vertical-align:-2px;margin-right:7px}
 .error{margin-top:14px;color:#f0a;background:#3a1620;border:1px solid #5a2030;
   padding:10px 12px;border-radius:8px}
 
@@ -144,13 +151,13 @@ select:disabled{opacity:.6}
 .subtab:hover{color:var(--text)}
 .subtab.active{background:var(--accent);color:#1a1209;border-color:var(--accent);font-weight:600}
 
-/* add-item form + queued additions */
+/* add-item / add-flag form + queued additions */
 .additem{display:flex;gap:8px;margin-bottom:12px}
-.additem #add-item-key{flex:1;background:var(--bg2);border:1px solid var(--line);
-  color:var(--text);padding:9px 12px;border-radius:9px;font-size:14px}
-.additem #add-item-key:focus{outline:none;border-color:var(--accent)}
-.additem #add-item-qty{width:74px;background:#0d0b08;color:var(--text);border:1px solid var(--line);
-  border-radius:8px;padding:9px;font-size:14px;text-align:right}
+.additem input{background:var(--bg2);border:1px solid var(--line);color:var(--text);
+  padding:9px 12px;border-radius:9px;font-size:14px}
+.additem input:not([type=number]){flex:1}
+.additem input:focus{outline:none;border-color:var(--accent)}
+.additem input[type=number]{width:74px;background:#0d0b08;text-align:right;padding:9px}
 .primary.small{padding:8px 14px;border-radius:9px}
 .attr.added{border-color:var(--ok);background:#1c2417}
 .attr.added label{color:#9ad07e}

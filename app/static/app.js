@@ -9,6 +9,9 @@ let skills = [];               // [{id, label, category, tier, tiers}]
 let inventory = [];            // [{id, item, label, count}]
 let itemDb = [];               // [{id, label, category}] valid items from the save
 const invAdds = [];            // [{item, label, count}] queued new items to add
+let passages = [];             // [{name, value}] world/story script flags
+const passChanges = new Map(); // name -> int
+const passAdds = [];           // [{name, value}] queued new flags to add
 const questChanges = new Map();  // id -> new_state
 const attrChanges = new Map();   // id -> number
 const skillChanges = new Map();  // id -> new_tier
@@ -39,7 +42,8 @@ async function upload(file) {
     quests = j.quests; attributes = j.attributes || []; skills = j.skills || [];
     inventory = j.inventory || [];
     itemDb = j.item_db || []; invAdds.length = 0;
-    questChanges.clear(); attrChanges.clear(); skillChanges.clear(); invChanges.clear();
+    passages = j.passages || []; passAdds.length = 0;
+    questChanges.clear(); attrChanges.clear(); skillChanges.clear(); invChanges.clear(); passChanges.clear();
     showEditor(j);
   } catch (e) {
     $("#load-error").textContent = "⚠ " + e.message;
@@ -61,7 +65,7 @@ function showEditor(j) {
     (j.slot ? `“${j.slot}”  ·  ` : "") +
     `${attributes.length} attributes · ${inventory.length} items · ${quests.length - gl} quests · ${gl} glossary`;
   renderAttrs("character"); renderSkills();
-  renderItemDb(); renderInventory(); renderGlossaryTabs(); renderQuests();
+  renderItemDb(); renderInventory(); renderPassages(); renderGlossaryTabs(); renderQuests();
   updateBar();
 }
 
@@ -227,6 +231,76 @@ function onInvPick(e) {
   if (v === "" || +v === orig) invChanges.delete(id);
   else invChanges.set(id, Math.max(0, Math.floor(+v)));
   e.target.closest(".attr").classList.toggle("changed", invChanges.has(id));
+  updateBar();
+}
+
+// ---------------------------------------------------------------- passages (script flags)
+$("#search-pass").oninput = renderPassages;
+$("#only-changed-pass").onchange = renderPassages;
+$("#add-pass-btn").onclick = onAddPass;
+$("#add-pass-name").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); onAddPass(); } };
+
+function onAddPass() {
+  const name = $("#add-pass-name").value.trim();
+  if (!/^[A-Za-z][A-Za-z0-9_]{2,62}$/.test(name)) { toast("enter a valid flag name (letters/digits/underscore)"); return; }
+  if (passages.some(p => p.name === name) || passAdds.some(a => a.name === name)) { toast("that flag already exists"); return; }
+  passAdds.push({ name, value: Math.trunc(+$("#add-pass-val").value || 1) });
+  $("#add-pass-name").value = ""; $("#add-pass-val").value = 1;
+  renderPassages(); updateBar();
+}
+
+function passCat(name) {
+  if (/Warning/i.test(name)) return "Warnings (escalation: 0 none · 1 warned · 2 threatened)";
+  if (/Permision|Permission|Access|Allow|Member|Join|Guild|Unlock/i.test(name)) return "Permissions / access";
+  return "Other story flags";
+}
+const PASS_ORDER = ["Permissions / access",
+  "Warnings (escalation: 0 none · 1 warned · 2 threatened)", "Other story flags"];
+
+function passRow(p) {
+  const val = passChanges.has(p.name) ? passChanges.get(p.name) : p.value;
+  return `<div class="attr ${passChanges.has(p.name) ? "changed" : ""}">
+    <label title="${esc(p.name)}">${esc(p.name)}</label>
+    <input type="number" step="1" data-pass="${esc(p.name)}" data-orig="${p.value}" value="${val}">
+  </div>`;
+}
+
+function renderPassages() {
+  const q = $("#search-pass").value.trim().toLowerCase();
+  const onlyChanged = $("#only-changed-pass").checked;
+  const el = $("#list-pass");
+  const rows = passages.filter(p => (!onlyChanged || passChanges.has(p.name))
+    && (!q || p.name.toLowerCase().includes(q)));
+  $("#count-pass").textContent = `${rows.length} shown${passAdds.length ? ` · ${passAdds.length} to add` : ""}`;
+
+  const adds = passAdds.map((a, i) => `<div class="attr added">
+      <label title="${esc(a.name)}">+ ${esc(a.name)}</label>
+      <input type="number" step="1" data-padd="${i}" value="${a.value}">
+      <button type="button" class="link rm" data-prm="${i}" title="remove">✕</button>
+    </div>`).join("");
+
+  const groups = {};
+  rows.forEach(p => (groups[passCat(p.name)] ??= []).push(p));
+  let html = adds ? `<div class="grp"><h3>To add — new flags (experimental)</h3><div class="grid">${adds}</div></div>` : "";
+  html += PASS_ORDER.filter(c => groups[c]).map(cat =>
+    `<div class="grp"><h3>${esc(cat)}</h3><div class="grid">${groups[cat].slice(0, 1000).map(passRow).join("")}</div></div>`
+  ).join("");
+  el.innerHTML = html || `<div class="empty">no matching flags</div>`;
+
+  el.querySelectorAll("input[data-pass]").forEach(i => i.oninput = onPassPick);
+  el.querySelectorAll("input[data-padd]").forEach(i => i.oninput = (e) => {
+    passAdds[+e.currentTarget.dataset.padd].value = Math.trunc(+e.currentTarget.value || 0);
+  });
+  el.querySelectorAll("[data-prm]").forEach(b => b.onclick = (e) => {
+    passAdds.splice(+e.currentTarget.dataset.prm, 1); renderPassages(); updateBar();
+  });
+}
+
+function onPassPick(e) {
+  const name = e.currentTarget.dataset.pass, orig = +e.currentTarget.dataset.orig, v = e.currentTarget.value;
+  if (v === "" || +v === orig) passChanges.delete(name);
+  else passChanges.set(name, Math.trunc(+v));
+  e.currentTarget.closest(".attr").classList.toggle("changed", passChanges.has(name));
   updateBar();
 }
 
@@ -434,7 +508,8 @@ function onQuestPick(e) {
 
 // ---------------------------------------------------------------- generate
 function updateBar() {
-  const n = attrChanges.size + questChanges.size + skillChanges.size + invChanges.size + invAdds.length;
+  const n = attrChanges.size + questChanges.size + skillChanges.size + invChanges.size
+    + invAdds.length + passChanges.size + passAdds.length;
   $("#pending").textContent = n === 1 ? "1 change" : `${n} changes`;
   $("#generate").disabled = n === 0;
   $("#clear").disabled = n === 0;
@@ -442,9 +517,9 @@ function updateBar() {
 
 $("#clear").onclick = () => {
   attrChanges.clear(); questChanges.clear(); skillChanges.clear(); invChanges.clear();
-  invAdds.length = 0;
+  invAdds.length = 0; passChanges.clear(); passAdds.length = 0;
   renderAttrs("character"); renderSkills();
-  renderInventory(); renderQuests(); updateBar();
+  renderInventory(); renderPassages(); renderQuests(); updateBar();
 };
 
 $("#generate").onclick = async () => {
@@ -458,6 +533,8 @@ $("#generate").onclick = async () => {
         attr_changes: [...attrChanges].map(([id, value]) => ({ id, value })),
         inv_changes: [...invChanges].map(([id, value]) => ({ id, value })),
         inv_adds: invAdds.map(a => ({ item: a.item, count: a.count })),
+        passage_changes: [...passChanges].map(([name, value]) => ({ name, value })),
+        passage_adds: passAdds.map(a => ({ name: a.name, value: a.value })),
         skill_changes: [...skillChanges].map(([id, new_tier]) => ({ id, new_tier })),
         quest_changes: [...questChanges].map(([id, new_state]) => ({ id, new_state })),
       }),
