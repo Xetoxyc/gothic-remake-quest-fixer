@@ -1,0 +1,10 @@
+{
+  "name": "Gothic Remake Quest Fixer",
+  "build": { "dockerfile": "../Dockerfile", "context": ".." },
+  "overrideCommand": true,
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "Quest Fixer", "onAutoForward": "openPreview" }
+  },
+  "postStartCommand": "nohup /entrypoint.sh > /tmp/quest-fixer.log 2>&1 & echo 'Quest Fixer starting on port 3000 — open the forwarded port.'"
+}
