@@ -1070,6 +1070,138 @@ def apply_passage_edits(payload, edits):
     return bytes(d)
 
 
+# ------------------------------------------------------- NPC behaviour (read-only)
+# Each character with a set relationship carries an ActivePersonalRelationshipModifiers
+# array of modifier objects (Story_Permanent[Friend/Angry/Enemy/Neutral], Enemy,
+# ExecuteCharacter, LootCharacter, FriendlyToPlayer). Friend/Angry (no target) are
+# toward the player. This is read-only for now.
+_REL_ARRAY = _re.escape(b"ActivePersonalRelationshipModifiers\x00\x0e\x00\x00\x00ArrayProperty\x00")
+_REL_MOD = _re.compile(rb"ActivePersonalRelationshipModifier_([A-Za-z_]+)")
+_REL_TGT = _re.compile(rb"TargetCharacterGlobalID\x00\x0c\x00\x00\x00NameProperty\x00.{9}", _re.S)
+_NPC_ROLE = {"KDW": "Water Mage", "GRD": "Guard", "NOV": "Novice", "VLK": "Townsfolk",
+             "ORG": "Digger", "TPL": "Templar", "SLD": "Mercenary", "GUR": "Guru",
+             "BAN": "Bandit", "STT": "Companion", "SLD": "Mercenary", "KDF": "Fire Mage"}
+
+
+def _npc_name_role(key):
+    m = _re.match(r"[A-Z]+_([A-Z]+)_([A-Za-z0-9]+?)_?\d*[-_]", key)
+    if m:
+        return m.group(2), _NPC_ROLE.get(m.group(1), m.group(1))
+    return (key.split("-")[0] or key), ""
+
+
+def _behaviour_status(mods):
+    types = {m["type"] for m in mods}
+    rels = {m["relationship"] for m in mods if m["relationship"]}
+    if "FriendlyToPlayer" in types or "Friend" in rels:
+        return "Friendly"
+    if "Angry" in rels:
+        return "Angry"
+    if "Enemy" in rels or "Enemy" in types:
+        return "Hostile"
+    if "ExecuteCharacter" in types:
+        return "Execute"
+    if "LootCharacter" in types:
+        return "Downed"
+    if "Neutral" in rels:
+        return "Neutral"
+    return "Other"
+
+
+def list_behaviours(payload):
+    """Read-only: NPCs that have a relationship modifier, and what it means."""
+    arrs = [m.start() for m in _re.finditer(_REL_ARRAY, payload)]
+    out = []
+    for i, o in enumerate(arrs):
+        end = arrs[i + 1] - 200 if i + 1 < len(arrs) else o + 2000
+        seg = payload[o:end]
+        mods = []
+        for mm in _REL_MOD.finditer(seg):
+            rest = seg[mm.end():mm.end() + 320]
+            rel = _re.search(rb"ERelationship::([A-Za-z]+)", rest)
+            tg = _REL_TGT.search(rest)
+            target = None
+            if tg:
+                to = o + mm.end() + tg.end()
+                n = _i32(payload, to)
+                if 0 < n < 200:
+                    target = payload[to + 4:to + 4 + n - 1].decode("ascii", "replace").split("-")[0]
+            mods.append({"type": mm.group(1).decode(),
+                         "relationship": rel.group(1).decode() if rel else None,
+                         "target": target})
+        if not mods:
+            continue
+        ks = _re.findall(rb"[A-Z][A-Za-z]{1,4}_[A-Za-z0-9_]+-[A-Za-z0-9_]+", payload[max(0, o - 160):o])
+        key = ks[-1].decode() if ks else "?"
+        name, role = _npc_name_role(key)
+        detail = ", ".join(m["type"].replace("_", " ")
+                           + (f" [{m['relationship']}]" if m["relationship"] else "")
+                           + (f" → {m['target']}" if m["target"] else "") for m in mods)
+        out.append({"npc": name, "role": role, "key": key,
+                    "status": _behaviour_status(mods), "detail": detail})
+    out.sort(key=lambda x: (x["status"], x["npc"]))
+    return out
+
+
+# ------------------------------------------------------------------- crimes
+# Each crime is a struct with a bIsForgiven BoolProperty (0x00 active, 0x10
+# forgiven), a CriminalGlobalID, a Crime.* type tag, and victim Guild.* tags.
+# A guild attacks a person with enough active crimes against it. Forgiving =
+# setting bIsForgiven to 0x10 (length-neutral byte write).
+_CR_FORGIVEN = _re.compile(rb"bIsForgiven\x00\x0d\x00\x00\x00BoolProperty\x00")
+_CR_CRIMINAL = _re.compile(rb"CriminalGlobalID\x00\x0d\x00\x00\x00NameProperty\x00")
+_CR_TYPE = _re.compile(rb"Crime\.[A-Za-z._]+")
+_CR_GUILD = _re.compile(rb"Guild\.(?:Human|Orc)\.[A-Za-z.]+")
+_FORGIVEN_TRUE = 0x10
+
+
+def _clean_guild(tag):
+    return tag.replace("Guild.Human.", "").replace("Guild.Orc.", "Orc.").replace(".", " · ")
+
+
+def _scan_crimes(payload):
+    ms = [m for m in _CR_FORGIVEN.finditer(payload)]
+    starts = [m.start() for m in ms]
+    ends = starts[1:] + [len(payload)]
+    out = []
+    for i, m in enumerate(ms):
+        o = m.start()
+        seg = payload[o:ends[i]]
+        cm = _CR_CRIMINAL.search(seg)
+        criminal = _fstr(payload, o + cm.end() + 9)[0].split("-")[0] if cm else "?"
+        ct = _CR_TYPE.search(seg)
+        ctype = ct.group().decode().replace("Crime.", "") if ct else "?"
+        guilds = sorted(set(g.group().decode() for g in _CR_GUILD.finditer(seg)))
+        out.append({"off": m.end() + 8, "criminal": criminal or "(none)",
+                    "type": ctype, "guilds": guilds, "forgiven": payload[m.end() + 8] != 0})
+    return out
+
+
+def list_crimes(payload):
+    """Crimes grouped by (criminal, victim guild): count + how many still active."""
+    groups = {}
+    for c in _scan_crimes(payload):
+        for g in (c["guilds"] or ["(area)"]):
+            e = groups.setdefault((c["criminal"], g),
+                                  {"criminal": c["criminal"], "guild": g,
+                                   "guild_label": _clean_guild(g), "count": 0, "active": 0})
+            e["count"] += 1
+            e["active"] += 0 if c["forgiven"] else 1
+    return sorted(groups.values(), key=lambda x: (-x["active"], x["criminal"], x["guild"]))
+
+
+def apply_crime_edits(payload, forgive):
+    """forgive: [{criminal, guild}] -> mark every matching active crime forgiven."""
+    want = {(f["criminal"], f["guild"]) for f in forgive}
+    d = bytearray(payload)
+    for c in _scan_crimes(payload):
+        if c["forgiven"]:
+            continue
+        if any((c["criminal"], g) in want for g in c["guilds"]):
+            d[c["off"]] = _FORGIVEN_TRUE
+    return bytes(d)
+
+
 def add_passage(payload, name, value=1):
     """EXPERIMENTAL: add a brand-new flag (name -> int) to the StoryPropertyValues
     map (append a key/value pair, bump count + enclosing sizes). Use to *grant* a

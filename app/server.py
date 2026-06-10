@@ -64,6 +64,8 @@ def load():
         inventory = g1r.find_player_inventory(payload)
         item_db = g1r.list_item_db(payload)
         passages = g1r.list_passages(payload)
+        behaviours = g1r.list_behaviours(payload)
+        crimes = g1r.list_crimes(payload)
     except Exception as e:
         return jsonify(error=str(e)), 400
 
@@ -92,6 +94,9 @@ def load():
                     "count": it["count"]} for it in inventory],
         item_db=item_db,
         passages=[{"name": p["name"], "value": p["value"]} for p in passages],
+        behaviours=behaviours,
+        crimes=[{"criminal": c["criminal"], "guild": c["guild"], "guild_label": c["guild_label"],
+                 "count": c["count"], "active": c["active"]} for c in crimes],
         quests=[{"id": q["val_off"], "key": q["key"], "name": q["name"], "state": q["state"]}
                 for q in quests],
     )
@@ -108,6 +113,7 @@ def patch():
     inv_adds = body.get("inv_adds") or []
     passage_changes = body.get("passage_changes") or []
     passage_adds = body.get("passage_adds") or []
+    crime_forgive = body.get("crime_forgive") or []
     with _lock:
         sess = _sessions.get(token)
         if sess:
@@ -115,7 +121,7 @@ def patch():
     if not sess:
         return jsonify(error="session expired; please re-upload your save"), 410
     if not (quest_changes or attr_changes or skill_changes or inv_changes or inv_adds
-            or passage_changes or passage_adds):
+            or passage_changes or passage_adds or crime_forgive):
         return jsonify(error="no changes selected"), 400
 
     aedits = [{"base_off": int(ch["id"]), "value": ch["value"]} for ch in attr_changes]
@@ -129,6 +135,8 @@ def patch():
             payload = g1r.apply_inventory_edits(payload, iedits)   # length-neutral too
         if passage_changes:
             payload = g1r.apply_passage_edits(payload, passage_changes)   # length-neutral too
+        if crime_forgive:
+            payload = g1r.apply_crime_edits(payload, crime_forgive)       # length-neutral too
 
         # quest + skill edits are length-changing and share ancestors
         # (m_GenericData), so they must be applied together in one pass.

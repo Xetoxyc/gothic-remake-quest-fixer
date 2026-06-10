@@ -69,6 +69,14 @@ select{background:var(--bg2);color:var(--text);border:1px solid var(--line);
 select:focus{outline:none;border-color:var(--accent)}
 .empty{padding:30px;text-align:center;color:var(--muted)}
 
+/* behaviour status badges */
+.bstat{font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;
+  border-radius:20px;white-space:nowrap;flex:none}
+.bstat.Friendly{background:#1f3318;color:#9ad07e;border:1px solid #34552a}
+.bstat.Angry{background:#33280f;color:#e0a23e;border:1px solid #564111}
+.bstat.Hostile,.bstat.Execute{background:#341816;color:#e08a7e;border:1px solid #5a2a24}
+.bstat.Downed,.bstat.Neutral,.bstat.Other{background:#26221c;color:#9c8c72;border:1px solid #3a3328}
+
 /* footer bar */
 .bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;
   padding:12px 22px;background:#1b150fee;border-top:1px solid var(--line);

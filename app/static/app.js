@@ -12,6 +12,9 @@ const invAdds = [];            // [{item, label, count}] queued new items to add
 let passages = [];             // [{name, value}] world/story script flags
 const passChanges = new Map(); // name -> int
 const passAdds = [];           // [{name, value}] queued new flags to add
+let behaviours = [];           // [{npc, role, status, detail}] read-only
+let crimes = [];               // [{criminal, guild, guild_label, count, active}]
+const crimeForgive = new Set(); // "criminal|guild" groups to forgive
 const questChanges = new Map();  // id -> new_state
 const attrChanges = new Map();   // id -> number
 const skillChanges = new Map();  // id -> new_tier
@@ -43,6 +46,8 @@ async function upload(file) {
     inventory = j.inventory || [];
     itemDb = j.item_db || []; invAdds.length = 0;
     passages = j.passages || []; passAdds.length = 0;
+    behaviours = j.behaviours || [];
+    crimes = j.crimes || []; crimeForgive.clear();
     questChanges.clear(); attrChanges.clear(); skillChanges.clear(); invChanges.clear(); passChanges.clear();
     showEditor(j);
   } catch (e) {
@@ -65,7 +70,8 @@ function showEditor(j) {
     (j.slot ? `“${j.slot}”  ·  ` : "") +
     `${attributes.length} attributes · ${inventory.length} items · ${quests.length - gl} quests · ${gl} glossary`;
   renderAttrs("character"); renderSkills();
-  renderItemDb(); renderInventory(); renderPassages(); renderGlossaryTabs(); renderQuests();
+  renderItemDb(); renderInventory(); renderPassages(); renderBehaviours(); renderCrimes();
+  renderGlossaryTabs(); renderQuests();
   updateBar();
 }
 
@@ -304,6 +310,49 @@ function onPassPick(e) {
   updateBar();
 }
 
+// ---------------------------------------------------------------- behaviour (read-only)
+$("#search-behave").oninput = renderBehaviours;
+
+function renderBehaviours() {
+  const q = $("#search-behave").value.trim().toLowerCase();
+  const el = $("#list-behave");
+  const rows = behaviours.filter(b => !q
+    || (b.npc + " " + b.role + " " + b.status + " " + b.detail).toLowerCase().includes(q));
+  $("#count-behave").textContent = `${rows.length} shown`;
+  if (!rows.length) { el.innerHTML = `<div class="empty">no NPCs with a set attitude</div>`; return; }
+  el.innerHTML = rows.map(b => `<div class="row">
+    <div class="name">${esc(b.npc)}<small>${esc(b.role)}${b.role ? " · " : ""}${esc(b.detail)}</small></div>
+    <span class="bstat ${esc(b.status)}">${esc(b.status)}</span>
+  </div>`).join("");
+}
+
+// ---------------------------------------------------------------- crimes (forgive)
+$("#search-crime").oninput = renderCrimes;
+
+function renderCrimes() {
+  const q = $("#search-crime").value.trim().toLowerCase();
+  const el = $("#list-crime");
+  const rows = crimes.filter(c => !q
+    || (c.criminal + " " + c.guild + " " + c.guild_label).toLowerCase().includes(q));
+  $("#count-crime").textContent = `${rows.length} shown${crimeForgive.size ? ` · ${crimeForgive.size} to forgive` : ""}`;
+  if (!rows.length) { el.innerHTML = `<div class="empty">no crimes</div>`; return; }
+  el.innerHTML = rows.map(c => {
+    const key = c.criminal + "|" + c.guild;
+    const on = crimeForgive.has(key);
+    return `<div class="row ${on ? "changed" : ""}">
+      <div class="name">${esc(c.criminal)}<small>vs ${esc(c.guild_label)} · ${c.active} active / ${c.count} total</small></div>
+      <span class="bstat ${c.active ? "Hostile" : "Downed"}">${c.active ? c.active + " active" : "clear"}</span>
+      <label class="check"><input type="checkbox" data-crime="${esc(key)}" ${on ? "checked" : ""} ${c.active ? "" : "disabled"}> forgive</label>
+    </div>`;
+  }).join("");
+  el.querySelectorAll("input[data-crime]").forEach(i => i.onchange = (e) => {
+    const k = e.currentTarget.dataset.crime;
+    e.currentTarget.checked ? crimeForgive.add(k) : crimeForgive.delete(k);
+    e.currentTarget.closest(".row").classList.toggle("changed", e.currentTarget.checked);
+    updateBar();
+  });
+}
+
 // ---------------------------------------------------------------- quests + glossary
 // glossaries share one structure: Quest_<root> > <Name>Glossary > Unlock + Entry…
 // categories are detected from the save (so new ones appear automatically).
@@ -509,7 +558,7 @@ function onQuestPick(e) {
 // ---------------------------------------------------------------- generate
 function updateBar() {
   const n = attrChanges.size + questChanges.size + skillChanges.size + invChanges.size
-    + invAdds.length + passChanges.size + passAdds.length;
+    + invAdds.length + passChanges.size + passAdds.length + crimeForgive.size;
   $("#pending").textContent = n === 1 ? "1 change" : `${n} changes`;
   $("#generate").disabled = n === 0;
   $("#clear").disabled = n === 0;
@@ -517,9 +566,9 @@ function updateBar() {
 
 $("#clear").onclick = () => {
   attrChanges.clear(); questChanges.clear(); skillChanges.clear(); invChanges.clear();
-  invAdds.length = 0; passChanges.clear(); passAdds.length = 0;
+  invAdds.length = 0; passChanges.clear(); passAdds.length = 0; crimeForgive.clear();
   renderAttrs("character"); renderSkills();
-  renderInventory(); renderPassages(); renderQuests(); updateBar();
+  renderInventory(); renderPassages(); renderCrimes(); renderQuests(); updateBar();
 };
 
 $("#generate").onclick = async () => {
@@ -535,6 +584,7 @@ $("#generate").onclick = async () => {
         inv_adds: invAdds.map(a => ({ item: a.item, count: a.count })),
         passage_changes: [...passChanges].map(([name, value]) => ({ name, value })),
         passage_adds: passAdds.map(a => ({ name: a.name, value: a.value })),
+        crime_forgive: [...crimeForgive].map(k => ({ criminal: k.split("|")[0], guild: k.split("|").slice(1).join("|") })),
         skill_changes: [...skillChanges].map(([id, new_tier]) => ({ id, new_tier })),
         quest_changes: [...questChanges].map(([id, new_state]) => ({ id, new_state })),
       }),

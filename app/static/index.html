@@ -45,6 +45,8 @@
       <button class="tab" data-tab="quests">Quests</button>
       <button class="tab" data-tab="passages">Passages</button>
       <button class="tab" data-tab="glossary">Glossary</button>
+      <button class="tab" data-tab="behaviour">Behaviour</button>
+      <button class="tab" data-tab="crimes">Crimes</button>
     </nav>
 
     <!-- Character -->
@@ -118,6 +120,27 @@
         <span id="count-glossary" class="count"></span>
       </div>
       <div id="list-glossary" class="list"></div>
+    </div>
+    <!-- Behaviour (read-only NPC relationship status) -->
+    <div class="panel hidden" data-panel="behaviour">
+      <p class="muted">NPCs that have a set attitude toward you (or a flagged state). <b>Read-only</b> for now —
+        for gathering info on who likes you, who's angry, who wants you dead.</p>
+      <div class="toolbar">
+        <input id="search-behave" type="search" placeholder="Search NPCs…  (name, role, status)" autocomplete="off">
+        <span id="count-behave" class="count"></span>
+      </div>
+      <div id="list-behave" class="list"></div>
+    </div>
+
+    <!-- Crimes (forgive crimes per criminal × victim guild) -->
+    <div class="panel hidden" data-panel="crimes">
+      <p class="muted">Crimes a person has committed against a guild. A guild attacks someone with enough
+        <b>active</b> crimes against it. Tick <b>forgive</b> to clear them (length-neutral &amp; safe).</p>
+      <div class="toolbar">
+        <input id="search-crime" type="search" placeholder="Search…  (e.g. Hero, WaterMage, theft)" autocomplete="off">
+        <span id="count-crime" class="count"></span>
+      </div>
+      <div id="list-crime" class="list"></div>
     </div>
   </section>
 </main>
