@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gothic 1 Remake — Quest Fixer</title>
+<title>Gothic 1 Remake — Savegame Editor</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>Gothic&nbsp;1 Remake — <span>Quest Fixer</span></h1>
-  <p class="sub">Fix stuck quests by editing their state, then download a ready-to-load save.</p>
+  <h1>Gothic&nbsp;1 Remake — <span>Savegame Editor</span></h1>
+  <p class="sub">Edit your character, skills, inventory, quests &amp; glossary — then download a ready-to-load save.</p>
 </header>
 
 <main>
@@ -35,13 +35,69 @@
       <button id="reset" class="link">use a different save</button>
     </div>
 
-    <div class="toolbar">
-      <input id="search" type="search" placeholder="Search quests…  (e.g. trialoffire, waterfall)" autocomplete="off">
-      <label class="check"><input type="checkbox" id="only-changed"> only changed</label>
-      <span id="count" class="count"></span>
+    <nav class="tabs">
+      <button class="tab active" data-tab="character">Character</button>
+      <button class="tab" data-tab="skills">Skills</button>
+      <button class="tab" data-tab="inventory">Inventory</button>
+      <button class="tab" data-tab="quests">Quests</button>
+      <button class="tab" data-tab="glossary">Glossary</button>
+    </nav>
+
+    <!-- Character -->
+    <div class="panel" data-panel="character">
+      <div class="panel-head">
+        <p class="muted">Edit the Nameless Hero's stats. Changing a value sets both its base and current value.</p>
+        <label class="check"><input type="checkbox" id="adv-toggle"> show advanced</label>
+      </div>
+      <div id="attrs-character" class="attrs"></div>
     </div>
 
-    <div id="list" class="list"></div>
+    <!-- Skills -->
+    <div class="panel hidden" data-panel="skills">
+      <p class="muted">Weapon &amp; thievery <b>tiers</b> (I / II / III). Lowering to the lowest tier (or
+        <b>unlearn</b> where shown) edits the effect in place; <b>“(learn)”</b> clones a same-family
+        spec — verify in-game.</p>
+      <div id="skills-list"></div>
+    </div>
+
+    <!-- Inventory -->
+    <div class="panel hidden" data-panel="inventory">
+      <p class="muted">Your items &amp; amounts. Edit a count, or <b>add a new item</b> (experimental — verify in-game).</p>
+      <div class="additem">
+        <input id="add-item-key" list="itemdb" placeholder="Add item — type a name or key (e.g. ItAt_Amulet_Fire)" autocomplete="off">
+        <datalist id="itemdb"></datalist>
+        <input id="add-item-qty" type="number" min="1" value="1" title="amount">
+        <button id="add-item-btn" class="primary small">+ add</button>
+      </div>
+      <div class="toolbar">
+        <input id="search-inv" type="search" placeholder="Search items…  (e.g. coin, ore, lockpick)" autocomplete="off">
+        <label class="check"><input type="checkbox" id="only-changed-inv"> only changed</label>
+        <span id="count-inv" class="count"></span>
+      </div>
+      <div id="list-inv" class="attrs"></div>
+    </div>
+
+    <!-- Quests -->
+    <div class="panel hidden" data-panel="quests">
+      <div class="toolbar">
+        <input id="search-quests" type="search" placeholder="Search quests…  (e.g. trialoffire, waterfall)" autocomplete="off">
+        <label class="check"><input type="checkbox" id="only-changed-quests"> only changed</label>
+        <span id="count-quests" class="count"></span>
+      </div>
+      <div id="list-quests" class="list"></div>
+    </div>
+
+    <!-- Glossary (creatures / locations bestiary entries) -->
+    <div class="panel hidden" data-panel="glossary">
+      <p class="muted">Bestiary entries — set an <b>Unlock</b> to <b>Succeeded</b>, then its entries; overviews update on their own.</p>
+      <nav id="gloss-subtabs" class="subtabs"></nav>
+      <div class="toolbar">
+        <input id="search-glossary" type="search" placeholder="Search this glossary…  (e.g. bloodfly, mine)" autocomplete="off">
+        <label class="check"><input type="checkbox" id="only-changed-glossary"> only changed</label>
+        <span id="count-glossary" class="count"></span>
+      </div>
+      <div id="list-glossary" class="list"></div>
+    </div>
   </section>
 </main>
 

@@ -1,10 +1,10 @@
 {
-  "name": "Gothic Remake Quest Fixer",
+  "name": "Gothic 1 Remake Savegame Editor",
   "build": { "dockerfile": "../Dockerfile", "context": ".." },
   "overrideCommand": true,
   "forwardPorts": [3000],
   "portsAttributes": {
-    "3000": { "label": "Quest Fixer", "onAutoForward": "openPreview" }
+    "3000": { "label": "Savegame Editor", "onAutoForward": "openPreview" }
   },
-  "postStartCommand": "nohup /entrypoint.sh > /tmp/quest-fixer.log 2>&1 & echo 'Quest Fixer starting on port 3000 — open the forwarded port.'"
+  "postStartCommand": "nohup /entrypoint.sh > /tmp/quest-fixer.log 2>&1 & echo 'Savegame Editor starting on port 3000 — open the forwarded port.'"
 }

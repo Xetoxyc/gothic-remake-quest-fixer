@@ -1,4 +1,4 @@
-"""Flask server for the Gothic 1 Remake quest fixer (local web app)."""
+"""Flask server for the Gothic 1 Remake savegame editor (local web app)."""
 import io
 import os
 import time
@@ -59,6 +59,10 @@ def load():
         c = g1r.Container(data)
         payload = g1r.decompress_payload(c, oodle())
         quests = g1r.list_quests(payload)
+        attrs = g1r.list_player_attributes(payload)
+        skills = g1r.list_player_skills(payload)
+        inventory = g1r.find_player_inventory(payload)
+        item_db = g1r.list_item_db(payload)
     except Exception as e:
         return jsonify(error=str(e)), 400
 
@@ -77,6 +81,15 @@ def load():
         slot=g1r.slot_name(c),
         chunks=c.n_chunks,
         states=g1r.EQUEST_STATES,
+        attributes=[{"id": a["base_off"], "set": a["set"], "name": a["name"],
+                     "label": a["label"], "value": a["value"], "tab": a["tab"],
+                     "advanced": a["advanced"]} for a in attrs],
+        skills=[{"id": s["fid"], "label": s["label"], "category": s["category"],
+                 "tier": s["tier"], "tiers": s["tiers"], "learned": s["learned"]}
+                for s in skills],
+        inventory=[{"id": it["id"], "item": it["item"], "label": it["label"],
+                    "count": it["count"]} for it in inventory],
+        item_db=item_db,
         quests=[{"id": q["val_off"], "key": q["key"], "name": q["name"], "state": q["state"]}
                 for q in quests],
     )
@@ -86,27 +99,56 @@ def load():
 def patch():
     body = request.get_json(force=True, silent=True) or {}
     token = body.get("token")
-    changes = body.get("changes") or []
+    quest_changes = body.get("quest_changes") or body.get("changes") or []
+    attr_changes = body.get("attr_changes") or []
+    skill_changes = body.get("skill_changes") or []
+    inv_changes = body.get("inv_changes") or []
+    inv_adds = body.get("inv_adds") or []
     with _lock:
         sess = _sessions.get(token)
         if sess:
             sess["ts"] = time.time()
     if not sess:
         return jsonify(error="session expired; please re-upload your save"), 410
-    if not changes:
+    if not (quest_changes or attr_changes or skill_changes or inv_changes or inv_adds):
         return jsonify(error="no changes selected"), 400
 
-    valid = set(g1r.EQUEST_STATES)
-    edits = []
-    for ch in changes:
-        if ch.get("new_state") not in valid:
-            return jsonify(error=f"invalid state {ch.get('new_state')!r}"), 400
-        edits.append({"val_off": int(ch["id"]), "new_state": ch["new_state"]})
+    aedits = [{"base_off": int(ch["id"]), "value": ch["value"]} for ch in attr_changes]
+    iedits = [{"id": int(ch["id"]), "value": ch["value"]} for ch in inv_changes]
 
     try:
-        new_payload = g1r.apply_edits(sess["payload"], edits)
+        payload = sess["payload"]
+        if aedits:
+            payload = g1r.apply_attribute_edits(payload, aedits)   # length-neutral first
+        if iedits:
+            payload = g1r.apply_inventory_edits(payload, iedits)   # length-neutral too
+
+        # quest + skill edits are length-changing and share ancestors
+        # (m_GenericData), so they must be applied together in one pass.
+        valid = set(g1r.EQUEST_STATES)
+        replaces, deletes = [], []
+        if quest_changes:
+            qoff = {q["val_off"] for q in g1r.list_quests(payload)}
+            for ch in quest_changes:
+                if ch.get("new_state") not in valid:
+                    return jsonify(error=f"invalid state {ch.get('new_state')!r}"), 400
+                if int(ch["id"]) not in qoff:
+                    return jsonify(error="unknown quest"), 400
+                replaces.append((int(ch["id"]), g1r.ENUM_PREFIX + ch["new_state"]))
+        learns = []
+        if skill_changes:
+            sr, sd, learns = g1r.build_skill_ops(payload, skill_changes)
+            replaces += sr
+            deletes += sd
+        if replaces or deletes:
+            payload = g1r.apply_ops(payload, replaces=replaces, deletes=deletes)
+        for base, tier in learns:                          # experimental: clone + retarget
+            payload = g1r.learn_skill(payload, base, tier)
+        for add in inv_adds:                                # experimental: clone an item slot
+            payload = g1r.add_item(payload, add["item"], int(add.get("count", 1)))
+
         c = g1r.Container(sess["sav"])
-        out = g1r.rebuild(c, oodle(), new_payload)
+        out = g1r.rebuild(c, oodle(), payload)
     except Exception as e:
         return jsonify(error=str(e)), 400
 

@@ -10,5 +10,5 @@ if [ ! -f "$OODLE_LIB" ]; then
   }
 fi
 
-echo "[entrypoint] Gothic Quest Fixer listening on http://localhost:${PORT}"
+echo "[entrypoint] Gothic 1 Remake Savegame Editor listening on http://localhost:${PORT}"
 exec python /app/app/server.py

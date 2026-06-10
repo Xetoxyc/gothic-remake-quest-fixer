@@ -1,13 +1,27 @@
-# Gothic 1 Remake — Quest Fixer
+# Gothic 1 Remake — Savegame Editor
 
-A tiny **local** web app to fix stuck/bugged quests in *Gothic 1 Remake* saves.
-Upload your `.sav`, search for the quest, set its state, download a ready-to-load
-save. Everything runs on your own machine in one container — nothing is uploaded
-anywhere.
+A **local** web app to edit *Gothic 1 Remake* saves: character stats, skills,
+inventory, quest states and the bestiary/locations glossary. Upload your `.sav`,
+make changes across tabs, download a ready-to-load save. Everything runs on your
+own machine in one container — **nothing is uploaded anywhere**.
 
 [![release](https://github.com/Xetoxyc/gothic-remake-quest-fixer/actions/workflows/release.yml/badge.svg)](https://github.com/Xetoxyc/gothic-remake-quest-fixer/actions/workflows/release.yml)
 [![ghcr](https://img.shields.io/badge/ghcr.io-gothic--remake--quest--fixer-2496ed?logo=docker&logoColor=white)](https://github.com/Xetoxyc/gothic-remake-quest-fixer/pkgs/container/gothic-remake-quest-fixer)
-![flow](https://img.shields.io/badge/upload-→_search_→_recompile-c8862a)
+![flow](https://img.shields.io/badge/upload-→_edit-→_download-c8862a)
+
+## What you can edit
+
+- **Character** — Strength, Dexterity, Health, Mana, Level, Experience, Learning
+  Points, Toughness, … (a value sets both its base and current).
+- **Skills** — weapon & thievery tiers (I / II / III), Magic Circle (0–6), hunting
+  & crafting & movement perks; unlearn, and *experimentally* learn skills you
+  don't have yet.
+- **Inventory** — change any item's amount, or **add new items** by name/key from
+  the save's own item database.
+- **Quests** — set any objective's state (`Available` / `Running` / `Succeeded` …);
+  the classic fix is the stuck *Trial of Fire* `OBJ_WATERFALL` / `OBJ_SEA`.
+- **Glossary** — creatures & locations bestiary, with the in-game unlock/entry
+  dependencies modelled (overviews update automatically).
 
 ## Quick start
 
@@ -47,15 +61,14 @@ because the Oodle library is x86_64) — it just works, only a little slower.
 
 1. **Upload** your save (e.g. `G1R-012.sav`, usually under
    `…\Saved\SaveGames\`).
-2. **Search** the quest list (try `trialoffire`, `waterfall`, a quest name…).
-   Each row shows its current state.
-3. Pick a new **state** (`None`, `Available`, `Running`, `Succeeded`, `Failed`)
-   from the dropdown. Change as many as you like.
-4. Click **Generate fixed save** → you get `<name>.fixed.sav`.
-5. **Back up your original**, then rename the `.fixed.sav` over it and load.
+2. Use the **tabs** (Character · Skills · Inventory · Quests · Glossary) to make
+   changes. Search where lists are long; only what you change is applied.
+3. Click **Generate fixed save** → you get `<name>.fixed.sav`.
+4. **Back up your original**, then rename the `.fixed.sav` over it and load.
 
-The classic case: the "Trial of Fire" objectives `OBJ_WATERFALL` / `OBJ_SEA` get
-stuck on `Running` if you light the shrine early — set them to `Succeeded`.
+> The classic quest fix: the *Trial of Fire* objectives `OBJ_WATERFALL` /
+> `OBJ_SEA` get stuck on `Running` if you light the shrine early — set them to
+> `Succeeded` in the Quests tab.
 
 ## How it works
 
@@ -63,14 +76,21 @@ The save is a custom GVAS container: a small header + game state stored as
 **Oodle(Kraken)-compressed 128 KiB chunks**. The app:
 
 1. decompresses every chunk with real Oodle,
-2. lists every objective's `EQuestState` (`CurrentState` enum),
-3. on edit, rewrites the enum string and bumps **every enclosing container
-   size field** plus the two decompressed-size header copies,
+2. locates the hero's data (attributes, the skill effect-spec array, the
+   inventory slot array) and the quest/glossary objective states,
+3. applies edits — **length-neutral** for attribute & item-count changes (an
+   in-place number write); **length-changing** for quest/skill/glossary state
+   strings and for learning skills / adding items, where the value is rewritten
+   and **every enclosing container size field** (plus the two decompressed-size
+   header copies) is adjusted,
 4. recompresses with real Oodle Kraken and rewrites the four header fields
    (`data-end @5`, both `total_unc`, `total_comp`).
 
-Every generated save is structurally re-validated (it must parse cleanly end to
-end) before download, so a bad edit is refused rather than written.
+Every generated save is structurally **re-validated** (it must parse cleanly end
+to end) before download, so a bad edit is refused rather than written. Learning
+skills / adding items clone an existing same-family entry and retarget it —
+marked *experimental* in the UI since gameplay correctness depends on the game
+re-deriving from the class on load.
 
 ## Oodle library
 
@@ -130,6 +150,8 @@ Container format & the decompress/recompress approach are based on
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| `POST` | `/api/load` | multipart `save=@file.sav` | `{token, quests:[{id,key,name,state}], states}` |
-| `POST` | `/api/patch` | `{token, filename, changes:[{id,new_state}]}` | the fixed `.sav` (binary) |
+| `POST` | `/api/load` | multipart `save=@file.sav` | `{token, states, attributes, skills, inventory, item_db, quests}` |
+| `POST` | `/api/patch` | `{token, filename, attr_changes, inv_changes, inv_adds, skill_changes, quest_changes}` | the fixed `.sav` (binary) |
 | `GET`  | `/api/health` | — | `{ok, oodle}` |
+
+All `*_changes` arrays are optional — send only what you edit.
