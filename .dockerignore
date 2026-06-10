@@ -1,0 +1,6 @@
+**/__pycache__
+*.pyc
+*.sav
+*.bin
+liboo2corelinux64.so.9
+.git

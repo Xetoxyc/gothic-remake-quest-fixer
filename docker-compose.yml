@@ -1,0 +1,11 @@
+services:
+  quest-fixer:
+    build: .
+    image: gothic-remake-quest-fixer
+    platform: linux/amd64
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    # Optional: use your own Oodle lib instead of downloading it:
+    # volumes:
+    #   - ./liboo2corelinux64.so.9:/app/liboo2corelinux64.so.9:ro

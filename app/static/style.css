@@ -1,0 +1,82 @@
+:root{
+  --bg:#15110d; --bg2:#1e1812; --card:#241d15; --line:#3a2f22;
+  --text:#e8ddc8; --muted:#9c8c72; --accent:#c8862a; --accent2:#e0a23e;
+  --ok:#5a9a4a; --run:#c8862a; --avail:#5c7fb0; --fail:#b04a3a; --none:#6b6256;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:
+  radial-gradient(1200px 500px at 50% -10%,#2a2016,var(--bg)) fixed;color:var(--text)}
+header{text-align:center;padding:34px 16px 10px}
+header h1{margin:0;font-size:26px;font-weight:600;letter-spacing:.3px}
+header h1 span{color:var(--accent2)}
+.sub{color:var(--muted);margin:6px 0 0}
+main{max-width:880px;margin:18px auto;padding:0 16px 120px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:18px;margin-bottom:18px;box-shadow:0 10px 30px #0006}
+.hidden{display:none!important}
+
+/* upload */
+.drop{border:2px dashed var(--line);border-radius:12px;padding:34px;text-align:center;
+  transition:.15s;cursor:pointer}
+.drop.over{border-color:var(--accent);background:#2c2317}
+.drop code{background:#0003;padding:1px 6px;border-radius:5px}
+.hint{color:var(--muted);font-size:13px;margin:8px 0 0}
+.loading{margin-top:14px;color:var(--accent2)}
+.error{margin-top:14px;color:#f0a;background:#3a1620;border:1px solid #5a2030;
+  padding:10px 12px;border-radius:8px}
+
+/* save bar */
+.savebar{display:flex;align-items:center;gap:12px;justify-content:space-between;
+  padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.badge{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--bg);
+  background:var(--accent);padding:2px 7px;border-radius:5px;margin-right:8px}
+.meta{color:var(--muted);font-size:13px;margin-left:10px}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+#search{flex:1;min-width:220px;background:var(--bg2);border:1px solid var(--line);
+  color:var(--text);padding:10px 12px;border-radius:9px;font-size:14px}
+#search:focus{outline:none;border-color:var(--accent)}
+.check{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.count{color:var(--muted);font-size:13px;margin-left:auto}
+
+/* list */
+.list{max-height:56vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.row{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid #00000030}
+.row:last-child{border-bottom:none}
+.row.changed{background:#2c2417}
+.row .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:14px}
+.row .name small{color:var(--muted);display:block;font-size:11px;overflow:hidden;
+  text-overflow:ellipsis}
+.row .arrow{color:var(--muted)}
+.st{font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;
+  border-radius:20px;white-space:nowrap}
+.st.Succeeded{background:#1f3318;color:#9ad07e;border:1px solid #34552a}
+.st.Running{background:#33280f;color:#e0a23e;border:1px solid #564111}
+.st.Available{background:#172738;color:#86b3e0;border:1px solid #244665}
+.st.Failed{background:#341816;color:#e08a7e;border:1px solid #5a2a24}
+.st.None{background:#26221c;color:#9c8c72;border:1px solid #3a3328}
+select{background:var(--bg2);color:var(--text);border:1px solid var(--line);
+  border-radius:8px;padding:6px 8px;font-size:13px}
+select:focus{outline:none;border-color:var(--accent)}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+
+/* footer bar */
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;
+  padding:12px 22px;background:#1b150fee;border-top:1px solid var(--line);
+  backdrop-filter:blur(6px)}
+.bar .grow{flex:1}
+#pending{color:var(--accent2);font-weight:600}
+button{font:inherit;cursor:pointer}
+.link{background:none;border:none;color:var(--accent2);text-decoration:underline;
+  padding:0;font-size:13px}
+.link:disabled{color:var(--muted);cursor:default;text-decoration:none}
+.primary{background:var(--accent);color:#1a1209;border:none;font-weight:600;
+  padding:10px 18px;border-radius:9px}
+.primary:disabled{background:#4a3b25;color:#8a7a60;cursor:default}
+.primary:not(:disabled):hover{background:var(--accent2)}
+
+.toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);
+  background:#0c0a07;border:1px solid var(--line);color:var(--text);
+  padding:10px 16px;border-radius:9px;box-shadow:0 8px 24px #0008;z-index:9}

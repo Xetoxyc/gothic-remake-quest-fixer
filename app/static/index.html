@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gothic 1 Remake — Quest Fixer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Gothic&nbsp;1 Remake — <span>Quest Fixer</span></h1>
+  <p class="sub">Fix stuck quests by editing their state, then download a ready-to-load save.</p>
+</header>
+
+<main>
+  <!-- step 1: upload -->
+  <section id="upload-card" class="card">
+    <div id="drop" class="drop">
+      <input type="file" id="file" accept=".sav" hidden>
+      <p><strong>Drop your <code>.sav</code> here</strong> or <button id="browse" class="link">browse…</button></p>
+      <p class="hint">Your save never leaves your machine — it's processed by the local container.</p>
+    </div>
+    <div id="loading" class="loading hidden">Decompressing &amp; reading quests…</div>
+    <div id="load-error" class="error hidden"></div>
+  </section>
+
+  <!-- step 2: edit -->
+  <section id="edit-card" class="card hidden">
+    <div class="savebar">
+      <div>
+        <span class="badge">save</span>
+        <strong id="save-name"></strong>
+        <span id="save-meta" class="meta"></span>
+      </div>
+      <button id="reset" class="link">use a different save</button>
+    </div>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search quests…  (e.g. trialoffire, waterfall)" autocomplete="off">
+      <label class="check"><input type="checkbox" id="only-changed"> only changed</label>
+      <span id="count" class="count"></span>
+    </div>
+
+    <div id="list" class="list"></div>
+  </section>
+</main>
+
+<footer id="bar" class="bar hidden">
+  <span id="pending">0 changes</span>
+  <div class="grow"></div>
+  <button id="clear" class="link" disabled>clear</button>
+  <button id="generate" class="primary" disabled>Generate fixed save</button>
+</footer>
+
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>
