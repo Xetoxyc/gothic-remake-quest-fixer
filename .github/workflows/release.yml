@@ -28,6 +28,7 @@ jobs:
 
   docker:
     needs: release-please
+    if: ${{ always() }}          # publish edge/sha even if the release job can't open a PR yet
     runs-on: ubuntu-latest
     permissions:
       contents: read
