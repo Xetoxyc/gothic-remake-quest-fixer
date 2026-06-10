@@ -5,8 +5,8 @@ inventory, quest states and the bestiary/locations glossary. Upload your `.sav`,
 make changes across tabs, download a ready-to-load save. Everything runs on your
 own machine in one container — **nothing is uploaded anywhere**.
 
-[![release](https://github.com/Xetoxyc/gothic-remake-quest-fixer/actions/workflows/release.yml/badge.svg)](https://github.com/Xetoxyc/gothic-remake-quest-fixer/actions/workflows/release.yml)
-[![ghcr](https://img.shields.io/badge/ghcr.io-gothic--remake--quest--fixer-2496ed?logo=docker&logoColor=white)](https://github.com/Xetoxyc/gothic-remake-quest-fixer/pkgs/container/gothic-remake-quest-fixer)
+[![release](https://github.com/Xetoxyc/gothic-remake-savegame-editor/actions/workflows/release.yml/badge.svg)](https://github.com/Xetoxyc/gothic-remake-savegame-editor/actions/workflows/release.yml)
+[![ghcr](https://img.shields.io/badge/ghcr.io-gothic--remake--savegame--editor-2496ed?logo=docker&logoColor=white)](https://github.com/Xetoxyc/gothic-remake-savegame-editor/pkgs/container/gothic-remake-savegame-editor)
 ![flow](https://img.shields.io/badge/upload-→_edit-→_download-c8862a)
 
 ## What you can edit
@@ -28,7 +28,7 @@ own machine in one container — **nothing is uploaded anywhere**.
 ### Run the published image (no build)
 
 ```bash
-docker run --rm -p 3000:3000 ghcr.io/xetoxyc/gothic-remake-quest-fixer:latest
+docker run --rm -p 3000:3000 ghcr.io/xetoxyc/gothic-remake-savegame-editor:latest
 ```
 
 ### …or build it yourself
@@ -41,7 +41,7 @@ Either way, open **http://localhost:3000**.
 
 ### …or run it on GitHub (no install)
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Xetoxyc/gothic-remake-quest-fixer)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Xetoxyc/gothic-remake-savegame-editor)
 
 Click the badge → *Create codespace*. It builds the container, starts the app,
 and forwards **port 3000** (a browser preview opens automatically). It's your own
@@ -50,8 +50,8 @@ Codespaces runs on amd64, so Oodle runs natively (no emulation).
 
 > Prefer plain `docker` for a local build?
 > ```bash
-> docker build -t gothic-remake-quest-fixer .
-> docker run --rm -p 3000:3000 gothic-remake-quest-fixer
+> docker build -t gothic-remake-savegame-editor .
+> docker run --rm -p 3000:3000 gothic-remake-savegame-editor
 > ```
 
 On Apple Silicon / ARM the image runs under emulation automatically (it's amd64

@@ -1,7 +1,7 @@
 services:
-  quest-fixer:
+  savegame-editor:
     build: .
-    image: gothic-remake-quest-fixer
+    image: gothic-remake-savegame-editor
     platform: linux/amd64
     ports:
       - "3000:3000"

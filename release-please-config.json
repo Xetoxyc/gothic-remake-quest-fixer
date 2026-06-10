@@ -4,7 +4,7 @@
   "include-component-in-tag": false,
   "packages": {
     ".": {
-      "package-name": "gothic-remake-quest-fixer",
+      "package-name": "gothic-remake-savegame-editor",
       "changelog-path": "CHANGELOG.md"
     }
   }

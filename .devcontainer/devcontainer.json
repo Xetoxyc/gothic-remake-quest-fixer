@@ -6,5 +6,5 @@
   "portsAttributes": {
     "3000": { "label": "Savegame Editor", "onAutoForward": "openPreview" }
   },
-  "postStartCommand": "nohup /entrypoint.sh > /tmp/quest-fixer.log 2>&1 & echo 'Savegame Editor starting on port 3000 — open the forwarded port.'"
+  "postStartCommand": "nohup /entrypoint.sh > /tmp/savegame-editor.log 2>&1 & echo 'Savegame Editor starting on port 3000 — open the forwarded port.'"
 }
