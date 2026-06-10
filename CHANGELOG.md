@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Xetoxyc/gothic-remake-savegame-editor/compare/v1.0.0...v1.1.0) (2026-06-10)
+
+
+### Features
+
+* full savegame editor (character, skills, inventory, glossary) ([55f90dd](https://github.com/Xetoxyc/gothic-remake-savegame-editor/commit/55f90ddf2a88f90492ce022b24fb787c877dea53))
+
 ## 1.0.0 (2026-06-10)
 
 
