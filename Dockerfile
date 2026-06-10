@@ -17,7 +17,7 @@ RUN chmod +x /entrypoint.sh
 # Oodle is fetched at container start (not baked into the image).
 ENV OODLE_LIB=/app/liboo2corelinux64.so.9 \
     OODLE_URL=https://raw.githubusercontent.com/natimerry/repak-rivals/master/liboo2corelinux64.so.9 \
-    PORT=3000
+    PORT=5000
 
-EXPOSE 3000
+EXPOSE 5000
 ENTRYPOINT ["/entrypoint.sh"]

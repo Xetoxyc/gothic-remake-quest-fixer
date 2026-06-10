@@ -2,9 +2,9 @@
   "name": "Gothic 1 Remake Savegame Editor",
   "build": { "dockerfile": "../Dockerfile", "context": ".." },
   "overrideCommand": true,
-  "forwardPorts": [3000],
+  "forwardPorts": [5000],
   "portsAttributes": {
-    "3000": { "label": "Savegame Editor", "onAutoForward": "openPreview" }
+    "5000": { "label": "Savegame Editor", "onAutoForward": "openPreview" }
   },
-  "postStartCommand": "nohup /entrypoint.sh > /tmp/savegame-editor.log 2>&1 & echo 'Savegame Editor starting on port 3000 — open the forwarded port.'"
+  "postStartCommand": "nohup /entrypoint.sh > /tmp/savegame-editor.log 2>&1 & echo 'Savegame Editor starting on port 5000 — open the forwarded port.'"
 }

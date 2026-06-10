@@ -28,7 +28,7 @@ own machine in one container — **nothing is uploaded anywhere**.
 ### Run the published image (no build)
 
 ```bash
-docker run --rm -p 3000:3000 ghcr.io/xetoxyc/gothic-remake-savegame-editor:latest
+docker run --rm -p 5000:5000 ghcr.io/xetoxyc/gothic-remake-savegame-editor:latest
 ```
 
 ### …or build it yourself
@@ -37,21 +37,21 @@ docker run --rm -p 3000:3000 ghcr.io/xetoxyc/gothic-remake-savegame-editor:lates
 docker compose up --build
 ```
 
-Either way, open **http://localhost:3000**.
+Either way, open **http://localhost:5000**.
 
 ### …or run it on GitHub (no install)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Xetoxyc/gothic-remake-savegame-editor)
 
 Click the badge → *Create codespace*. It builds the container, starts the app,
-and forwards **port 3000** (a browser preview opens automatically). It's your own
+and forwards **port 5000** (a browser preview opens automatically). It's your own
 private instance — your save stays in your codespace, not on a shared server.
 Codespaces runs on amd64, so Oodle runs natively (no emulation).
 
 > Prefer plain `docker` for a local build?
 > ```bash
 > docker build -t gothic-remake-savegame-editor .
-> docker run --rm -p 3000:3000 gothic-remake-savegame-editor
+> docker run --rm -p 5000:5000 gothic-remake-savegame-editor
 > ```
 
 On Apple Silicon / ARM the image runs under emulation automatically (it's amd64
