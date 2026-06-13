@@ -139,7 +139,7 @@ function skillRow(s) {
   const sel = skillChanges.get(s.id) ?? s.tier;
   const opts = s.tiers.map(o =>
     `<option value="${o.value}" ${o.value === sel ? "selected" : ""}>${esc(o.label)}</option>`).join("");
-  return `<div class="attr ${skillChanges.has(s.id) ? "changed" : ""} ${s.learned ? "" : "fresh"}">
+  return `<div class="attr skillrow ${skillChanges.has(s.id) ? "changed" : ""} ${s.learned ? "" : "fresh"}">
     <label title="${esc(s.category)}">${esc(s.label)}${s.learned ? "" : ` <span class="tag">not learned</span>`}</label>
     <select data-skill="${s.id}">${opts}</select>
   </div>`;

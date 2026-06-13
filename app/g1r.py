@@ -11,6 +11,8 @@ from wealth's gist (gist.github.com/wealth/de5a461e02ab49060d5f418a520ee1e8).
 import ctypes
 import struct
 
+import catalog
+
 CHUNK = 0x20000
 MAGIC = b"\xc1\x83\x2a\x9e"
 KRAKEN = 8
@@ -608,49 +610,19 @@ _SKILL_REF = _re.compile(rb"/Script/Angelscript\.Default__GE_Skill_([A-Za-z0-9_]
 _HUNT_REF = _re.compile(rb"GE_Skill_Hunting_[A-Za-z]+_Trained")
 _KNOWN_TIERS = {"Untrained", "Trained", "Master", "Amateur", "Apprentice",
                 "Skilled", "Journeyman", "Adept", "Expert"}
-# base -> ordered "trained" tier classes that exist (Untrained == unlearn == delete)
-_TIER_LADDER = {
-    "Melee_OneHanded": ["Trained", "Master"], "Melee_TwoHanded": ["Trained", "Master"],
-    "Melee_Fists": ["Trained", "Master"], "Ranged_Bow": ["Trained", "Master"],
-    "Ranged_Crossbow": ["Trained", "Master"],
-    "Picklock": ["Skilled", "Master"], "Pickpocket": ["Skilled", "Master"],
-    # magic circles are a numbered ladder; Amateur == circle 0 (learned, not unlearned)
-    "Mage_Circle": ["Amateur", "1", "2", "3", "4", "5", "6"],
-}
-# canonical roster always shown (so untrained weapons are visible too)
-_ROSTER = [("Melee_OneHanded", "One-Handed", "Combat"),
-           ("Melee_TwoHanded", "Two-Handed", "Combat"),
-           ("Melee_Fists", "Fists", "Combat"),
-           ("Ranged_Bow", "Bow", "Combat"),
-           ("Ranged_Crossbow", "Crossbow", "Combat"),
-           ("Picklock", "Lockpicking", "Thievery"),
-           ("Pickpocket", "Pickpocketing", "Thievery")]
+# The skill catalog (labels, ladders, learnable roster, GE class paths) lives in
+# catalog.py so a fresh hero can be offered every skill, not just the ones already
+# in the save. These are derived views consumed by the logic below.
+_TIER_LADDER = catalog.TIER_LADDER        # base -> ordered tiers above Untrained
+_HAS_UNTRAINED = catalog.HAS_UNTRAINED    # an _Untrained GE class exists (rename, not delete)
+_SKILL_LABELS = catalog.LABELS
+_LEARNABLE = catalog.LEARNABLE            # every learnable base (offered on a fresh hero)
 _TIER_DISPLAY = {"Untrained": "Untrained", "Trained": "Trained", "Master": "Master",
                  "Skilled": "Novice", "Amateur": "Amateur (Circle 0)",
                  "1": "Circle 1", "2": "Circle 2", "3": "Circle 3",
-                 "4": "Circle 4", "5": "Circle 5", "6": "Circle 6"}
+                 "4": "Circle 4", "5": "Circle 5", "6": "Circle 6",
+                 "Learned": "Learned"}
 _ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"]
-# skills the hero always carries (even Untrained is a real GE class) -> "Untrained"
-# means rename-to-Untrained, NOT unlearn/delete.
-_HAS_UNTRAINED = {"Picklock", "Pickpocket", "Ranged_Bow", "Ranged_Crossbow", "Orcish"}
-# fallback: bases with no learned donor we can clone safely (only used if the hero
-# somehow has no spec for them at all; normally they're already learned).
-_NO_LEARN = set()
-_SKILL_LABELS = {
-    "Melee_OneHanded": "One-Handed", "Melee_TwoHanded": "Two-Handed",
-    "Melee_Fists": "Fists", "Ranged_Bow": "Bow", "Ranged_Crossbow": "Crossbow",
-    "Hunting_Organ": "Take Organs", "Hunting_Teeth": "Break Teeth",
-    "Hunting_Claw": "Take Claws", "Hunting_Fur": "Skin Fur", "Hunting_Skin": "Skin",
-    "Hunting_Fins": "Take Fins", "Hunting_Stings": "Take Stingers",
-    "Hunting_Secretion": "Take Secretion", "Hunting_SkullArmor": "Take Skull Plates",
-    "Hunting_SkinSwampshark": "Skin Swampshark", "Acrobatics": "Acrobatics",
-    "Wallclimbing": "Wall Climbing", "Riding": "Riding",
-    "Crafting_Inscription": "Rune Inscription", "Crafting_Alchemy": "Alchemy",
-    "Crafting_Smithing": "Smithing", "Picklock": "Lockpicking",
-    "Pickpocket": "Pickpocketing", "Mage_Circle": "Magic Circle",
-    "Diving": "Diving", "Acrobatics": "Acrobatics", "Riding": "Riding",
-    "Orcish": "Orcish Language",
-}
 
 
 def _skill_split(raw):
@@ -661,18 +633,14 @@ def _skill_split(raw):
 
 
 def _skill_category(base):
-    if base in _TIER_LADDER and base.startswith(("Melee", "Ranged")):
-        return "Combat"
-    if base in ("Picklock", "Pickpocket"):
-        return "Thievery"
-    if base.startswith("Hunting_"):
+    if base in catalog.CATEGORY:                 # catalog is authoritative
+        return catalog.CATEGORY[base]
+    if base.startswith("Hunting_"):              # heuristics for anything not catalogued yet
         return "Hunting"
     if base.startswith("Crafting_"):
         return "Crafting"
     if base.startswith("Mage") or "Circle" in base:
         return "Magic"
-    if base in ("Acrobatics", "Wallclimbing", "Riding", "Diving"):
-        return "Movement"
     return "Other"
 
 
@@ -686,9 +654,12 @@ def _tier_options(base, current):
         opts.append({"value": "Untrained", "label": "Untrained (unlearn)"})
         return opts
     if ladder:                                   # ranked: full ladder = Untrained + tiers
+        hints = catalog.SKILLS.get(base, {}).get("tier_labels", {})
         opts = []
         for i, t in enumerate(["Untrained"] + ladder):
             lbl = f"{_TIER_DISPLAY.get(t, t)} ({_ROMAN[i]})"
+            if t in hints:
+                lbl += f" — {hints[t]}"
             if t == "Untrained" and base not in _HAS_UNTRAINED:
                 lbl += " · unlearn"
             opts.append({"value": t, "label": lbl})
@@ -697,6 +668,31 @@ def _tier_options(base, current):
     if current != "Untrained":            # binary skill -> offer unlearn (skip if it'd dup)
         opts.append({"value": "Untrained", "label": "Untrained (unlearn)"})
     return opts
+
+
+def _learn_tier_options(base):
+    """Tier dropdown for a skill the hero has NOT learned yet (the learnable roster).
+    Ranked skills offer Untrained + each tier; circles offer Untrained + 0..6; the
+    rest are on/off with a single 'Learn' state."""
+    kind = catalog.SKILLS[base]["kind"]
+    if kind == "ladder":
+        hints = catalog.SKILLS[base].get("tier_labels", {})
+        opts = []
+        for i, t in enumerate(["Untrained"] + _TIER_LADDER[base]):
+            lbl = f"{_TIER_DISPLAY.get(t, t)} ({_ROMAN[i]})"
+            if t in hints:
+                lbl += f" — {hints[t]}"
+            if t != "Untrained":
+                lbl += " · learn"
+            opts.append({"value": t, "label": lbl})
+        return opts
+    if kind == "circle":
+        opts = [{"value": "Untrained", "label": "Untrained"}]
+        for t in _TIER_LADDER[base]:
+            opts.append({"value": t, "label": _TIER_DISPLAY.get(t, t) + " · learn"})
+        return opts
+    return [{"value": "Untrained", "label": "Not learned"},
+            {"value": catalog.learn_value(base), "label": "Learn"}]
 
 
 def _player_skill_span(payload):
@@ -741,20 +737,14 @@ def list_player_skills(payload):
                 "tiers": _tier_options(base, tname), "learned": True,
                 "_base_path": "/Script/Angelscript.Default__GE_Skill_" + base,
             })
-    # roster: known weapons/thievery the hero hasn't learned -> can be *learned*
-    for base, label, cat in _ROSTER:
+    # roster: every catalogued skill the hero hasn't learned -> can be *learned*
+    # (this is what lets a fresh hero be given hunting/utility/crafting/magic skills).
+    for base in _LEARNABLE:
         if base not in seen_base:
-            if base in _NO_LEARN:                          # can't synthesize safely yet
-                tiers = [{"value": "Untrained", "label": "Untrained — train in-game"}]
-            else:
-                tiers = []
-                for i, t in enumerate(["Untrained"] + _TIER_LADDER.get(base, [])):
-                    lbl = f"{_TIER_DISPLAY.get(t, t)} ({_ROMAN[i]})"
-                    if t != "Untrained":
-                        lbl += " · learn"
-                    tiers.append({"value": t, "label": lbl})
-            learned.append({"id": None, "fid": "new:" + base, "base": base, "label": label,
-                            "category": cat, "tier": "Untrained", "tiers": tiers,
+            learned.append({"id": None, "fid": "new:" + base, "base": base,
+                            "label": _SKILL_LABELS.get(base, base.replace("_", " ")),
+                            "category": _skill_category(base), "tier": "Untrained",
+                            "tiers": _learn_tier_options(base),
                             "learned": False, "_base_path": None})
     learned.sort(key=lambda s: (s["category"], not s["learned"], s["label"]))
     return learned
@@ -784,14 +774,76 @@ def build_skill_ops(payload, edits):
     return replaces, deletes, learns
 
 
+# The hero's effect-spec array is the FIRST property ("ActiveEffects") of the
+# protagonist's "Hero"-keyed CharacterState. This anchor is unique in the save and
+# is skill-independent, so it locates the array even when it is EMPTY (a fresh hero
+# with nothing learned yet) -- where the contents-based _player_skill_span fails.
+_HERO_AE = _re.compile(
+    rb"\x05\x00\x00\x00Hero\x00\x0e\x00\x00\x00ActiveEffects\x00"
+    rb"\x0e\x00\x00\x00ArrayProperty\x00")
+# A real ActiveGameplayEffect array element captured from a known-good save (see
+# skill_donor.py), used as a donor template when the current save has no learned
+# skill to clone. The game re-derives the effect from the GE class we retarget to.
+def _donor_template():
+    from skill_donor import DONOR
+    return DONOR
+
+
+def _hero_ae_array(payload):
+    """Locate the hero's ActiveEffects ArrayProperty by name (works even when the
+    array is empty). Returns (arr_size_off, count_off, vstart, vend, count,
+    ancestor_size_offs) or None."""
+    m = _HERO_AE.search(payload)
+    if not m:
+        return None
+    name_off = m.start() + 9                      # the 'ActiveEffects' name fstring
+    type_start = _fstr_end(payload, name_off)     # skip name -> type descriptor
+    root, arr_so = _typename(payload, type_start)
+    if root != "ArrayProperty":
+        return None
+    count_off = arr_so + 5
+    vstart, vend, _ = _value_end(payload, arr_so, "ArrayProperty")
+    count = _i32(payload, count_off)
+    size_offs = [c["size_off"] for c in _chain(payload, count_off)]
+    return arr_so, count_off, vstart, vend, count, size_offs
+
+
+def _learn_from_template(payload, base, tier):
+    """Synthesize a learned skill with NO live donor: append a captured effect-spec
+    element to the hero's ActiveEffects array, then retarget its GE reference."""
+    loc = _hero_ae_array(payload)
+    if not loc:
+        raise ValueError("could not locate the hero's effect array to learn into")
+    _arr_so, count_off, _vstart, vend, count, size_offs = loc
+    tmpl = _donor_template()
+
+    # append the template element at the end of the array value: count++, every
+    # enclosing container size field grows by the element's size.
+    d = bytearray(payload)
+    for so in size_offs:
+        struct.pack_into("<i", d, so, _i32(d, so) + len(tmpl))
+    struct.pack_into("<i", d, count_off, count + 1)
+    d[vend:vend] = tmpl
+    p2 = bytes(d)
+    if not validate(p2):
+        raise ValueError("skill insert (template) produced an invalid structure")
+
+    # retarget the appended element's single GE reference to the new skill class.
+    m = _SKILL_REF.search(p2, vend, vend + len(tmpl))
+    if not m:
+        raise ValueError("donor template is missing its GE reference")
+    return apply_ops(p2, replaces=[(m.start() - 4, catalog.skill_class(base, tier))])
+
+
 def learn_skill(payload, base, tier):
     """EXPERIMENTAL: add a skill the hero doesn't have, by cloning a same-family
     learned effect-spec and retargeting its GE reference. Structurally safe
     (re-validated); gameplay correctness depends on the game re-deriving the
-    effect from its GE class on load."""
+    effect from its GE class on load. With no learned skill to clone from (a fresh
+    hero), falls back to a captured donor template appended to the hero's array."""
     skills = [s for s in list_player_skills(payload) if s["learned"]]
     if not skills:
-        raise ValueError("no learned skill to clone from")
+        return _learn_from_template(payload, base, tier)
     cat = _skill_category(base)
     donor = (next((s for s in skills if s["category"] == cat), None)
              or next((s for s in skills if s["category"] == "Combat"), None)
@@ -812,8 +864,7 @@ def learn_skill(payload, base, tier):
 
     # step B: retarget the clone's GE reference to the new skill class
     dup_ref_off = val_off + donor_size
-    new_path = "/Script/Angelscript.Default__GE_Skill_" + base + "_" + tier
-    return apply_ops(p2, replaces=[(dup_ref_off, new_path)])
+    return apply_ops(p2, replaces=[(dup_ref_off, catalog.skill_class(base, tier))])
 
 
 def apply_skill_edits(payload, edits):
